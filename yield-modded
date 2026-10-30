@@ -9524,7 +9524,57 @@ addcmd('freezeanims',{},function(args, speaker)
 	end
 end)
 
-resetAutoToken = 0
+RAEnv = (getgenv and getgenv()) or _G
+RA_FLAG_FILE = "IY_ResetAuto.txt"
+
+RA_SNIPPET = [[
+task.spawn(function()
+	local env = (getgenv and getgenv()) or _G
+	if not (isfile and readfile and isfile("IY_ResetAuto.txt") and readfile("IY_ResetAuto.txt") == "true") then return end
+	if not game:IsLoaded() then game.Loaded:Wait() end
+	local Players = game:GetService("Players")
+	local player = Players.LocalPlayer
+	while not player do
+		Players:GetPropertyChangedSignal("LocalPlayer"):Wait()
+		player = Players.LocalPlayer
+	end
+	env.IY_RA_TOKEN = (env.IY_RA_TOKEN or 0) + 1
+	local token = env.IY_RA_TOKEN
+	local function kill(char)
+		local humanoid = char:WaitForChild("Humanoid", 10)
+		if not humanoid then return end
+		local startTime = os.clock()
+		while token == env.IY_RA_TOKEN and char.Parent and humanoid.Health > 0 and char:FindFirstChildOfClass("ForceField") and os.clock() - startTime < 15 do
+			task.wait(0.1)
+		end
+		local attempts = 0
+		while token == env.IY_RA_TOKEN and char.Parent and humanoid.Parent and humanoid.Health > 0 and attempts < 50 do
+			attempts = attempts + 1
+			pcall(function() humanoid:ChangeState(Enum.HumanoidStateType.Dead) end)
+			pcall(function() humanoid.Health = 0 end)
+			pcall(function() char:BreakJoints() end)
+			task.wait(0.2)
+		end
+	end
+	player.CharacterAdded:Connect(kill)
+	if player.Character then task.spawn(kill, player.Character) end
+end)
+]]
+
+function saveResetAutoFlag()
+	if writefileExploit() then
+		pcall(waxwritefile, RA_FLAG_FILE, resetAuto and "true" or "false")
+	end
+end
+
+function loadResetAutoFlag()
+	if readfileExploit() and isfile and isfile(RA_FLAG_FILE) then
+		local ok, data = pcall(waxreadfile, RA_FLAG_FILE)
+		return ok and data == "true"
+	end
+	return false
+end
+
 resetAutoCon = nil
 
 function resetAutoKill(char, token)
@@ -9532,13 +9582,13 @@ function resetAutoKill(char, token)
 	if not humanoid then return end
 
 	local startTime = os.clock()
-	while resetAuto and token == resetAutoToken and char.Parent and humanoid.Health > 0
+	while resetAuto and token == RAEnv.IY_RA_TOKEN and char.Parent and humanoid.Health > 0
 		and char:FindFirstChildOfClass("ForceField") and os.clock() - startTime < 15 do
 		task.wait(0.1)
 	end
 
 	local attempts = 0
-	while resetAuto and token == resetAutoToken and char.Parent and humanoid.Parent
+	while resetAuto and token == RAEnv.IY_RA_TOKEN and char.Parent and humanoid.Parent
 		and humanoid.Health > 0 and attempts < 50 do
 		attempts = attempts + 1
 		pcall(function() humanoid:ChangeState(Enum.HumanoidStateType.Dead) end)
@@ -9551,8 +9601,8 @@ end
 function startResetAuto(applyNow)
 	if resetAutoCon then resetAutoCon:Disconnect() end
 	resetAuto = true
-	resetAutoToken = resetAutoToken + 1
-	local token = resetAutoToken
+	RAEnv.IY_RA_TOKEN = (RAEnv.IY_RA_TOKEN or 0) + 1
+	local token = RAEnv.IY_RA_TOKEN
 	local player = Players.LocalPlayer
 
 	resetAutoCon = player.CharacterAdded:Connect(function(char)
@@ -9566,7 +9616,7 @@ end
 
 function stopResetAuto()
 	resetAuto = false
-	resetAutoToken = resetAutoToken + 1
+	RAEnv.IY_RA_TOKEN = (RAEnv.IY_RA_TOKEN or 0) + 1
 	if resetAutoCon then
 		resetAutoCon:Disconnect()
 		resetAutoCon = nil
@@ -9576,15 +9626,14 @@ end
 addcmd("resetauto", {"ra"}, function(args, speaker)
 	if resetAuto then
 		stopResetAuto()
-		updatesaves()
+		saveResetAutoFlag()
 		notify("Reset Auto", "Disabled")
 	else
 		startResetAuto(false)
-		updatesaves()
+		saveResetAutoFlag()
 		notify("Reset Auto", "Enabled (type RA again to disable)")
 	end
 end)
-
 addcmd('unfreezeanims',{},function(args, speaker)
 	local Humanoid = speaker.Character:FindFirstChildOfClass("Humanoid") or speaker.Character:FindFirstChildOfClass("AnimationController")
 	local ActiveTracks = Humanoid:GetPlayingAnimationTracks()
