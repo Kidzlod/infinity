@@ -9579,7 +9579,7 @@ addcmd("resetauto", {"ra"}, function(args, speaker)
 		updatesaves()
 		notify("Reset Auto", "Disabled")
 	else
-		startResetAuto(false)
+		startResetAuto(true)
 		updatesaves()
 		notify("Reset Auto", "Enabled (type RA again to disable)")
 	end
