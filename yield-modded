@@ -9524,25 +9524,65 @@ addcmd('freezeanims',{},function(args, speaker)
 	end
 end)
 
-local resetAutoConnection = nil
-addcmd("resetauto", {"ra"}, function(args, speaker)
-	if resetAutoConnection then
-		resetAutoConnection:Disconnect()
-		resetAutoConnection = nil
-		notify("Reset Auto", "Disabled")
-		return
+resetAutoToken = 0
+resetAutoCon = nil
+
+function resetAutoKill(char, token)
+	local humanoid = char:WaitForChild("Humanoid", 10)
+	if not humanoid then return end
+
+	local startTime = os.clock()
+	while resetAuto and token == resetAutoToken and char.Parent and humanoid.Health > 0
+		and char:FindFirstChildOfClass("ForceField") and os.clock() - startTime < 15 do
+		task.wait(0.1)
 	end
 
-	resetAutoConnection = speaker.CharacterAdded:Connect(function(char)
-		local humanoid = char:WaitForChild("Humanoid", 10)
-		if not humanoid then return end
-		char:WaitForChild("HumanoidRootPart", 10)
-		task.wait()
-		humanoid:ChangeState(Enum.HumanoidStateType.Dead)
+	local attempts = 0
+	while resetAuto and token == resetAutoToken and char.Parent and humanoid.Parent
+		and humanoid.Health > 0 and attempts < 50 do
+		attempts = attempts + 1
+		pcall(function() humanoid:ChangeState(Enum.HumanoidStateType.Dead) end)
 		pcall(function() humanoid.Health = 0 end)
+		pcall(function() char:BreakJoints() end)
+		task.wait(0.2)
+	end
+end
+
+function startResetAuto(applyNow)
+	if resetAutoCon then resetAutoCon:Disconnect() end
+	resetAuto = true
+	resetAutoToken = resetAutoToken + 1
+	local token = resetAutoToken
+	local player = Players.LocalPlayer
+
+	resetAutoCon = player.CharacterAdded:Connect(function(char)
+		task.spawn(resetAutoKill, char, token)
 	end)
 
-	notify("Reset Auto", "Enabled (type RA again to disable)")
+	if applyNow and player.Character then
+		task.spawn(resetAutoKill, player.Character, token)
+	end
+end
+
+function stopResetAuto()
+	resetAuto = false
+	resetAutoToken = resetAutoToken + 1
+	if resetAutoCon then
+		resetAutoCon:Disconnect()
+		resetAutoCon = nil
+	end
+end
+
+addcmd("resetauto", {"ra"}, function(args, speaker)
+	if resetAuto then
+		stopResetAuto()
+		updatesaves()
+		notify("Reset Auto", "Disabled")
+	else
+		startResetAuto(false)
+		updatesaves()
+		notify("Reset Auto", "Enabled (type RA again to disable)")
+	end
 end)
 
 addcmd('unfreezeanims',{},function(args, speaker)
