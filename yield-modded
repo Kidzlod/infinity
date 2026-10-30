@@ -6507,7 +6507,7 @@ local TeleportCheck = false
 Players.LocalPlayer.OnTeleport:Connect(function(State)
 	if KeepInfYield and (not TeleportCheck) and queueteleport then
 		TeleportCheck = true
-		queueteleport("loadstring(game:HttpGet('https://raw.githubusercontent.com/Kidzlod/infinity/refs/heads/main/yield-modded'))()")
+		queueteleport("do local e = (getgenv and getgenv()) or _G e.IY_FROM_TELEPORT = true e.IY_RA_STATE = " .. tostring(resetAuto == true) .. " end loadstring(game:HttpGet('https://raw.githubusercontent.com/Kidzlod/infinity/refs/heads/main/yield-modded'))()")
 	end
 end)
 
@@ -13307,7 +13307,20 @@ end
 
 if loadedEventData then eventEditor.LoadData(loadedEventData) end
 eventEditor.Refresh()
-
+do
+	local env = (getgenv and getgenv()) or _G
+	if env.IY_FROM_TELEPORT then
+		resetAuto = env.IY_RA_STATE == true
+	else
+		resetAuto = true
+	end
+	env.IY_FROM_TELEPORT = nil
+	env.IY_RA_STATE = nil
+	if resetAuto then
+		startResetAuto(true)
+	end
+	updatesaves()
+end
 eventEditor.FireEvent("OnExecute")
 
 if aliases and #aliases > 0 then
